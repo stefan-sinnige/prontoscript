@@ -104,6 +104,7 @@ int gExitCode = 0;
 JSBool gQuitting = JS_FALSE;
 FILE *gErrFile = NULL;
 FILE *gOutFile = NULL;
+const char *gModulePath = NULL;
 
 #ifdef JSDEBUGGER
 static JSDContext *_jsdc;
@@ -163,7 +164,7 @@ GetLine(JSContext *cx, char *bufp, FILE *file, const char *prompt) {
     return JS_TRUE;
 }
 
-static void
+void
 Process(JSContext *cx, JSObject *obj, char *filename)
 {
     JSBool ok, hitEOF;
@@ -278,7 +279,7 @@ static int
 usage(void)
 {
     fprintf(gErrFile, "%s\n", JS_GetImplementationVersion());
-    fprintf(gErrFile, "usage: js [-PswWxC] [-b branchlimit] [-c stackchunksize] [-v version] [-f scriptfile] [-e script] [-S maxstacksize] [scriptfile] [scriptarg...]\n");
+    fprintf(gErrFile, "usage: js [-PswWxC] [-b branchlimit] [-c stackchunksize] [-v version] [-m modulepath] [-f scriptfile] [-e script] [-S maxstacksize] [scriptfile] [scriptarg...]\n");
     return 2;
 }
 
@@ -332,6 +333,7 @@ ProcessArgs(JSContext *cx, JSObject *obj, char **argv, int argc)
           case 'c':
           case 'f':
           case 'e':
+          case 'm':
           case 'v':
           case 'S':
             ++i;
@@ -420,6 +422,13 @@ ProcessArgs(JSContext *cx, JSObject *obj, char **argv, int argc)
         case 'c':
             /* set stack chunk size */
             gStackChunkSize = atoi(argv[++i]);
+            break;
+
+        case 'm':
+            if (++i == argc) {
+                return usage();
+            }
+            gModulePath = argv[i];
             break;
 
         case 'f':
@@ -668,7 +677,7 @@ ReadLine(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval)
     return JS_TRUE;
 }
 
-static JSBool
+JSBool
 Print(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval)
 {
     uintN i, n;

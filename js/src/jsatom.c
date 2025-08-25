@@ -144,6 +144,8 @@ const char js_tagc_str[]            = ">";
 const char js_xml_str[]             = "xml";
 #endif
 
+const char ps_System_str[]          = "System";
+
 #ifdef NARCISSUS
 const char js_call_str[]             = "__call__";
 const char js_construct_str[]        = "__construct__";
@@ -359,6 +361,8 @@ js_InitPinnedAtoms(JSContext *cx, JSAtomState *state)
     FROB(tagcAtom,                js_tagc_str);
     FROB(xmlAtom,                 js_xml_str);
 #endif
+
+    FROB(SystemAtom,              ps_System_str);
 
 #ifdef NARCISSUS
     FROB(callAtom,                js_call_str);

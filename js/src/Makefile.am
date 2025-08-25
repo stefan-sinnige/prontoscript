@@ -36,7 +36,8 @@ prontoscript_SOURCES = \
     jsutil.c \
     jsxdrapi.c \
     jsxml.c \
-    prmjtime.c
+    prmjtime.c \
+    ext/pssystem.c
 
 prontoscript_CPPFLAGS = \
     -DXP_UNIX \

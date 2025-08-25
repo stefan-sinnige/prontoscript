@@ -77,6 +77,7 @@
 #include "jsscript.h"
 #include "jsstr.h"
 #include "prmjtime.h"
+#include "ext/pssystem.h"
 
 #if JS_HAS_FILE_OBJECT
 #include "jsfile.h"
@@ -1190,7 +1191,8 @@ JS_InitStandardClasses(JSContext *cx, JSObject *obj)
 #if JS_HAS_FILE_OBJECT
            js_InitFileClass(cx, obj) &&
 #endif
-           js_InitDateClass(cx, obj);
+           js_InitDateClass(cx, obj) &&
+           ps_InitSystemClass(cx, obj);
 }
 
 #define ATOM_OFFSET(name)       offsetof(JSAtomState, name##Atom)
@@ -1232,6 +1234,7 @@ static struct {
 #if JS_HAS_FILE_OBJECT
     {js_InitFileClass,              ATOM_OFFSET(File)},
 #endif
+    {ps_InitSystemClass,            ATOM_OFFSET(System)},
     {NULL,                          0}
 };
 
