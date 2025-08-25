@@ -1,0 +1,7 @@
+2025-08-07  Stefan Sinnige  <stefan@kalion.org>
+
+    Release 1.6.0 [Git Tag: v1.0.0.0, Git Commit: xxxxxxxx]
+
+    New Features:
+
+        * Partial ProntoScript System and TCPSocket classes
