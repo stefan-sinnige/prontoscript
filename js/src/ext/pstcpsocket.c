@@ -1,0 +1,677 @@
+/*
+ * This file is part of the ProntoScript replication distribution
+ * (https://github.com/stefan-sinnige/prontoscript)
+ *
+ * Copyright (C) 2025, Stefan Sinnige <stefan@kalion.org>
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ */
+
+#include "jsapi.h"
+#include "jscntxt.h"
+#include "jsfun.h"
+#include "jslock.h"
+#include "jstypes.h"
+#include "pstcpsocket.h"
+#include <errno.h>
+#include <arpa/inet.h>
+#include <netinet/in.h>
+#include <sys/socket.h>
+#include <sys/types.h>
+#include <string.h>
+#include <netdb.h>
+#include <unistd.h>
+
+#include <stdio.h>
+
+/*
+ *Forward declarations
+ */
+static JSBool TCPSocket_GetProperty(JSContext*, JSObject*, jsval, jsval*);
+static JSBool TCPSocket_SetProperty(JSContext*, JSObject*, jsval, jsval*);
+static JSBool TCPSocket_Connect(JSContext*, JSObject*, uintN, jsval*, jsval*);
+static JSBool TCPSocket_Close(JSContext*, JSObject*, uintN, jsval*, jsval*);
+static JSBool TCPSocket_Read(JSContext*, JSObject*, uintN, jsval*, jsval*);
+static JSBool TCPSocket_Write(JSContext*, JSObject*, uintN, jsval*, jsval*);
+static JSBool TCPSocket_CT(JSContext*, JSObject*, uintN, jsval*, jsval*);
+static void   TCPSocket_DT(JSContext*, JSObject*);
+static JSBool TCPSocket_Invoke(JSContext*, jsval, uintN, jsval*);
+
+/*
+ * The TCPSocket socket class private instance data.
+ */
+typedef struct {
+    JSBool blocking;        /* True if blocking IO is to be used. */
+    jsval onConnect;        /* The on-connect callback function. */
+    int fd;                 /* The socket file descriptor, or -1. */
+    JSBool connected;       /* Connection state. */
+} TCPSocket;
+
+/**
+ * Definition of the class properties
+ */
+enum tcpsocket_tinyid {
+    TCPSOCKET_CONNECTED = -1,
+    TCPSOCKET_ONCONNECT = -2
+};
+
+#define TCPSOCKET_PROP_ATTRS (JSPROP_PERMANENT)
+
+static JSPropertySpec tcpsocket_props[] = {
+    /* { name, tinyid, flags, getter, setter } */
+    {"connected", TCPSOCKET_CONNECTED, TCPSOCKET_PROP_ATTRS | JSPROP_READONLY, 0, 0},
+    {"onConnect", TCPSOCKET_ONCONNECT, TCPSOCKET_PROP_ATTRS , 0, 0},
+    {0, 0, 0, 0, 0}
+};
+
+/**
+ * Definition of the class methods
+ */
+static JSFunctionSpec tcpsocket_methods[] = {
+    /* { name, call, nargs, flags, extra } */
+    {"connect", TCPSocket_Connect, 0, 0, 0},
+    {"close", TCPSocket_Close, 0, 0, 0},
+    {"read", TCPSocket_Read, 0, 0, 0},
+    {"write", TCPSocket_Write, 0, 0, 0},
+    {0, 0, 0, 0, 0}
+};
+
+/**
+ * Definition of the class
+ */
+static JSClass tcpsocket_class = {
+    ps_TCPSocket_str,               /* name */
+    JSCLASS_HAS_PRIVATE,            /* flags */
+    JS_PropertyStub,                /* add property */
+    JS_PropertyStub,                /* del property */
+    TCPSocket_GetProperty,          /* get property */
+    TCPSocket_SetProperty,          /* set property */
+    JS_EnumerateStub,               /* enumerate */
+    JS_ResolveStub,                 /* resolve */
+    JS_ConvertStub,                 /* convert */
+    TCPSocket_DT,                   /* finalize */
+    JSCLASS_NO_OPTIONAL_MEMBERS
+};
+
+/*
+ * Create and destroy the socket instance.
+ */
+
+TCPSocket*
+TCPSocket_New(JSContext *cx, JSBool blocking)
+{
+    TCPSocket *tcp = NULL;
+    tcp = (TCPSocket*) JS_malloc(cx, sizeof(TCPSocket));
+    if (!tcp) {
+        return NULL;
+    }
+    tcp->blocking = blocking;
+    tcp->onConnect = JSVAL_VOID;
+    tcp->fd = socket(AF_INET, SOCK_STREAM, 0);
+    tcp->connected = JS_FALSE;
+    return tcp;
+}
+
+void
+TCPSocket_Delete(JSContext* cx, TCPSocket* tcp)
+{
+    if (tcp->fd != -1) {
+        close(tcp->fd);
+    }
+    JS_free(cx, tcp);
+}
+
+static JSBool
+TCPSocket_GetProperty(JSContext *cx, JSObject *obj, jsval id, jsval *vp)
+{   
+    TCPSocket* tcp = NULL;
+    jsint slot;
+
+    /* Get the property's slot */
+    if (!JSVAL_IS_INT(id)) {
+        return JS_TRUE;
+    }
+    slot = JSVAL_TO_INT(id);
+
+    /* Get the value */
+    JS_LOCK_OBJ(cx, obj);
+    tcp = (TCPSocket*)JS_GetInstancePrivate(cx, obj, &tcpsocket_class, NULL);
+    if (tcp) {
+        switch (slot) {
+            case TCPSOCKET_CONNECTED:
+                *vp = BOOLEAN_TO_JSVAL(tcp->connected);
+                break;
+            case TCPSOCKET_ONCONNECT:
+                *vp = tcp->onConnect;
+                break;
+            default:
+                break;
+        }
+    }
+    JS_UNLOCK_OBJ(cx, obj);
+    return JS_TRUE;
+}
+
+static JSBool
+TCPSocket_SetProperty(JSContext *cx, JSObject *obj, jsval id, jsval *vp)
+{
+    TCPSocket* tcp = NULL;
+    jsint slot;
+
+    /* Get the property's slot */
+    if (!JSVAL_IS_INT(id)) {
+        return JS_TRUE;
+    }
+    slot = JSVAL_TO_INT(id);
+
+    /* Set the value */
+    JS_LOCK_OBJ(cx, obj);
+    tcp = (TCPSocket*)JS_GetInstancePrivate(cx, obj, &tcpsocket_class, NULL);
+    switch (slot) {
+        case TCPSOCKET_CONNECTED:
+            break;
+        case TCPSOCKET_ONCONNECT:
+            if (JSVAL_IS_FUNCTION(cx, *vp)) {
+                tcp->onConnect = *vp;
+            }
+            break;
+    }
+    JS_UNLOCK_OBJ(cx, obj);
+    return JS_TRUE;
+}
+
+/*
+ * Invoke a callback function.
+ */
+static JSBool
+TCPSocket_Invoke(JSContext *cx, jsval fun, uintN argc, jsval *argv)
+{
+    JSObject* callable = NULL;
+    JSStackFrame* fp;
+    jsval *sp, *oldsp, rval;
+    void *mark;
+    JSBool result;
+
+    /* Allocate call stack frame and push the function, object and argument */
+    sp = js_AllocStack(cx, 2 + argc, &mark);
+    if (!sp) {
+        return JS_FALSE;
+    }
+    *sp++ = fun;
+    *sp++ = OBJECT_TO_JSVAL(NULL); /* Object to call function on, NULL global */
+    for (int i = 0; i < argc; ++i) {
+        *sp++ = argv[i];
+    }
+    
+    /* Lift current frame and call */
+    fp = cx->fp;
+    oldsp = fp->sp;
+    fp->sp = sp;
+    result = js_Invoke(cx, argc, JSINVOKE_INTERNAL | JSINVOKE_SKIP_CALLER);
+
+    /* Store the rval and pop the call stack frame */
+    rval = fp->sp[-1];
+    fp->sp = oldsp;
+    js_FreeStack(cx, mark);
+    return result;
+}
+
+/**
+ * Synopsis:
+ *      TCPSocket(blocking)
+ * Purpose:
+ *      Create a new TCPSocket instance.
+ * Parameters:
+ *      blocking    Boolean (opt)
+ *          When true, creates a socket with synchronous (blocking) actions on
+ *          connecting, reading and writing. If false or omitted, the socket
+ *          operates asynchronously using the callback functions.
+ * Returns:
+ *      A new TCPSocket instance.
+ * Exceptions:
+ *      Maximum active socket count reached.
+ */
+static JSBool
+TCPSocket_CT(JSContext* cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval)
+{
+    JSBool ok = JS_TRUE;
+    TCPSocket* tcp = NULL;
+    JSString* str;
+    JSBool blocking = JS_FALSE;
+
+    /* Create the objec */
+    if (!obj) {
+        obj = js_NewObject(cx, &tcpsocket_class, NULL, NULL);
+        if (!obj) {
+            return JS_FALSE;
+        }
+    }
+
+    /* Get the optional 'blocking' argument */
+    if (argc >= 0) {
+        switch (JS_TypeOfValue(cx, argv[0])) {
+            case JSTYPE_NUMBER:
+                blocking = JSVAL_IS_INT(argv[0])
+                        ? JSVAL_TO_INT(argv[0])
+                        : (jsint) *JSVAL_TO_DOUBLE(argv[0]);
+                break;
+            case JSTYPE_BOOLEAN:
+                blocking = JSVAL_TO_BOOLEAN(argv[0]);
+                break;
+            default:
+                break;
+        }
+    }
+
+    /* Set the private instance state object */
+    tcp = TCPSocket_New(cx, blocking);
+    JS_LOCK_OBJ(cx, obj);
+    ok = JS_SetPrivate(cx, obj, tcp);
+    JS_LOCK_OBJ(cx, obj);
+    if (!ok) {
+        return JS_FALSE;
+    }
+    return JS_TRUE;
+}
+
+/**
+ * Destructor.
+ */
+static void
+TCPSocket_DT(JSContext* cx, JSObject *obj)
+{
+    TCPSocket* tcp = NULL;
+    tcp = (TCPSocket*)JS_GetInstancePrivate(cx, obj, &tcpsocket_class, NULL);
+    if (tcp) {
+        TCPSocket_Delete(cx, tcp);
+    }
+}
+
+/**
+ * Synopsis:
+ *      connect(ip, port, timeout)
+ * Purpose:
+ *      Create a connection to a TCP server.
+ * Parameter:
+ *      ip      String
+ *          IP Address or host name to connect to.
+ *      port    Integer
+ *          Port number to connect to.
+ *      timeout Integer
+ *          Maximum time in milliseconds to establish an asynchroneous
+ *          connection.
+ * Exceptions:
+ *      Not enough arguments specified
+ *      Argument is not a string
+ *      Argument is not an integer
+ *      Argument is not a positive number
+ *      Failed to connect
+ *      Failed
+ * Additional Information:
+ *      For a synchroneous socket, the fnction returns when the connection is
+ *      established, or failed.
+ *
+ *      For an asynchronous socket, it returns immediately and the onConnect
+ *      is called as soon as the connection is effective.
+ */
+static JSBool
+TCPSocket_Connect(JSContext *cx, JSObject *obj, uintN argc, jsval *argv,
+                  jsval *rval)
+{
+    TCPSocket* tcp = NULL;
+    char* peer = "";
+    JSUint32 ip = 0;
+    JSUint16 port = 0;
+    JSUint32 timeout = 0;
+    struct sockaddr_in addr;
+    socklen_t len;
+    int result;
+    int dotted = 1;
+
+    tcp = (TCPSocket*) JS_GetPrivate(cx, obj);
+    if (!tcp) {
+        return JS_FALSE;
+    }
+
+    /*
+     * Extract the address and port.
+     */
+    if (argc != 3) {
+        JS_ReportErrorNumber(cx, js_GetErrorMessage, NULL,
+                             PSMSG_NOT_ENOUGH_ARGUMENTS);
+        return JS_FALSE;
+    }
+    if (JS_TypeOfValue(cx, argv[0]) != JSTYPE_STRING) {
+        JS_ReportErrorNumber(cx, js_GetErrorMessage, NULL,
+                             PSMSG_ARGUMENT_NOT_STRING);
+        return JS_FALSE;
+    }
+    peer = JS_GetStringBytes(JSVAL_TO_STRING(argv[0]));
+    if (JS_TypeOfValue(cx, argv[1]) != JSTYPE_NUMBER) {
+        JS_ReportErrorNumber(cx, js_GetErrorMessage, NULL,
+                             PSMSG_ARGUMENT_NOT_INT);
+        return JS_FALSE;
+    }
+    port = JSVAL_TO_INT(argv[1]);
+    if (JS_TypeOfValue(cx, argv[2]) != JSTYPE_NUMBER) {
+        JS_ReportErrorNumber(cx, js_GetErrorMessage, NULL,
+                             PSMSG_ARGUMENT_NOT_INT);
+        return JS_FALSE;
+    }
+    timeout = JSVAL_TO_INT(argv[2]);
+
+    /* 
+     * Get the IP address from the peer
+     */
+    for (char* cp = peer; *cp != '\0'; ++cp) {
+        if ((*cp < '0' || *cp > '9' ) && *cp != '.') {
+            dotted = 0;
+            break;
+        }
+    }
+    if (dotted) {
+        ip = inet_addr(peer);
+    }
+    else {
+        struct addrinfo* infos;
+        struct addrinfo* info;
+        struct addrinfo hint;
+
+        // Define any lookup hints
+        memset(&hint, 0, sizeof(struct addrinfo));
+        hint.ai_family = AF_INET;
+        hint.ai_socktype = SOCK_STREAM;
+        hint.ai_protocol = IPPROTO_TCP;
+
+        // Perform the lookup (this is likely to be expensive)
+        result = getaddrinfo(peer, NULL, &hint, &infos);
+        if (result != 0) {
+            JS_ReportErrorNumber(cx, js_GetErrorMessage, NULL,
+                                 PSMSG_FAILED, "lookup error");
+            return JS_FALSE;
+        }
+        for (info = infos; info != NULL; info = info->ai_next)
+        {
+            // Use the first match
+            ip = ((struct sockaddr_in*)info->ai_addr)->sin_addr.s_addr;
+            break;
+        }
+        freeaddrinfo(infos);
+    }
+
+    /*
+     * Create the address structure.
+     */
+    len = sizeof(addr);
+    memset(&addr, 0, sizeof(struct sockaddr_in));
+    addr.sin_family = AF_INET;
+    addr.sin_port = htons(port);
+    addr.sin_addr.s_addr = ip;
+
+    /* 
+     * If already connected, close it first.
+     */
+    if (tcp->connected) {
+        close(tcp->fd);
+        tcp->connected = JS_FALSE;
+        tcp->fd = socket(AF_INET, SOCK_STREAM, 0);
+    }
+
+    /*
+     * Connect
+     */
+    result = connect(tcp->fd, (struct sockaddr*)&addr, len);
+    if (result == -1) {
+        JS_ReportErrorNumber(cx, js_GetErrorMessage, NULL,
+                             PSMSG_FAILED, strerror(errno));
+        return JS_FALSE;
+    }
+    else {
+        tcp->connected = JS_TRUE;
+    }
+
+    /*
+     * Invoke the callback
+     */
+    if (tcp->onConnect != JSVAL_VOID) {
+        uintN iargc = 1;
+        jsval iargv[1];
+
+        /* Prepare arguments */
+        JSString* data = JS_NewStringCopyZ(cx, "Hello World");
+        if (!data) {
+            return JS_FALSE;
+        }
+        iargv[0] = STRING_TO_JSVAL(data);
+
+        // Invoke
+        TCPSocket_Invoke(cx, tcp->onConnect, iargc, iargv);
+    }
+
+    return JS_TRUE;    
+}
+
+/**
+ * Synopsis:
+ *      close()
+ * Purpose:
+ *      Terminates the connection.
+ * Parameters:
+ *      None
+ * Exceptions:
+ *      Socket error
+ */
+static JSBool
+TCPSocket_Close(JSContext *cx, JSObject *obj, uintN argc, jsval *argv,
+                  jsval *rval)
+{
+    TCPSocket* tcp = NULL;
+
+    tcp = (TCPSocket*) JS_GetPrivate(cx, obj);
+    if (!tcp) {
+        return JS_FALSE;
+    }
+    if (tcp->fd != -1) {
+        close(tcp->fd);
+        tcp->fd = -1;
+    }
+    return JS_TRUE;
+}
+
+/**
+ * Synopsis:
+ *      read([count[, timeout]])
+ * Purpose:
+ *      Read data from the socket.
+ * Parameters:
+ *      count   Integer (opt)
+ *              Number of bytes to read. If not specified, read all available
+ *              data.
+ *      timeout Integer (opt)
+ *              Maxixmum time in milliseconds to wait for data to arrive for a
+ *              synchronous socket. If omitted, return immediately with the
+ *              currently available data.
+ * Returns:
+ *      String  The available socket data in case of a synchronous socket. For
+ *              asynchronous sockets, returns immediately and the onData
+ *              callback is called when the data is received.
+ * Exceptions:
+ *      Argument is not an integer
+ *      Argument is not a positive integer
+ *      Maximum blocking read length exceeded
+ *      Insufficient internal memory available
+ *      Socket error
+ *      Failed
+ */
+static JSBool
+TCPSocket_Read(JSContext *cx, JSObject *obj, uintN argc, jsval *argv,
+                  jsval *rval)
+{
+    TCPSocket* tcp = NULL;
+    JSUint16 count = 65535;
+    JSUint32 timeout = 0;
+    JSString* data;
+    ssize_t nread = 0;
+
+    tcp = (TCPSocket*) JS_GetPrivate(cx, obj);
+    if (!tcp) {
+        return JS_FALSE;
+    }
+
+    /*
+     * Extract the count and timeout.
+     */
+    if (argc > 0) {
+        if (JS_TypeOfValue(cx, argv[0]) != JSTYPE_NUMBER) {
+            JS_ReportErrorNumber(cx, js_GetErrorMessage, NULL,
+                                 PSMSG_ARGUMENT_NOT_STRING);
+            return JS_FALSE;
+        }
+        count = JSVAL_TO_INT(argv[0]);
+        if (argc > 1) {
+            if (JS_TypeOfValue(cx, argv[0]) != JSTYPE_NUMBER) {
+                JS_ReportErrorNumber(cx, js_GetErrorMessage, NULL,
+                                    PSMSG_ARGUMENT_NOT_STRING);
+                return JS_FALSE;
+            }
+            timeout = JSVAL_TO_INT(argv[0]);
+        }
+    }
+
+    /*
+     * Bail out if not connected.
+     */
+    if (!tcp->connected) {
+        JS_ReportErrorNumber(cx, js_GetErrorMessage, NULL,
+                             PSMSG_FAILED, "not connected");
+        return JS_FALSE;
+    }
+
+    /*
+     * Read the data.
+     */
+    data = JS_NewGrowableString(cx, NULL, 0);
+    while (nread != count) {
+        char buf[256];
+        ssize_t buflen;
+
+        /* Determing how many bytes to read, either to fill up the local buffer
+         * or the remaining bytes left to read, whichever is the smallest. */
+        if ((count -nread) < sizeof(buf)) {
+            buflen = count - nread;
+        }
+        else {
+            buflen = sizeof(buf);
+        }
+
+        /* Read the buffer and concatenate to the result. */
+        buflen = recv(tcp->fd, buf, buflen, 0);
+        if (buflen == -1) {
+            JS_ReportErrorNumber(cx, js_GetErrorMessage, NULL,
+                                PSMSG_SOCKET_ERROR);
+            return JS_FALSE;
+        }
+        if (buflen == 0) {
+            break;
+        }
+        data = JS_ConcatStrings(cx, data, JS_NewStringCopyN(cx, buf, buflen));
+        nread += buflen;
+    }
+
+    printf("%s\n", js_GetStringBytes(data));
+    *rval = STRING_TO_JSVAL(data);
+    return JS_TRUE;
+}
+
+/**
+ * Synopsis:
+ *      write()
+ * Purpose:
+ *      Write data to the socket.
+ * Parameters:
+ *      data    String
+ *              THe data to be transmitted, may contain binary data.
+ * Exceptions:
+ *      Not enough arguments specified
+ *      Socket not ready
+ *      Socket error
+ */
+static JSBool
+TCPSocket_Write(JSContext *cx, JSObject *obj, uintN argc, jsval *argv,
+                  jsval *rval)
+{
+    TCPSocket* tcp = NULL;
+    JSString* data;
+    ssize_t nwritten;
+
+    tcp = (TCPSocket*) JS_GetPrivate(cx, obj);
+    if (!tcp) {
+        return JS_FALSE;
+    }
+
+    /*
+     * Extract the string to write.
+     */
+    if (argc == 0) {
+        JS_ReportErrorNumber(cx, js_GetErrorMessage, NULL,
+                             PSMSG_NOT_ENOUGH_ARGUMENTS);
+        return JS_FALSE;
+    }
+    if (JS_TypeOfValue(cx, argv[0]) != JSTYPE_STRING) {
+        JS_ReportErrorNumber(cx, js_GetErrorMessage, NULL,
+                             PSMSG_ARGUMENT_NOT_STRING);
+        return JS_FALSE;
+    }
+    data = JSVAL_TO_STRING(argv[0]);
+
+    /*
+     * Bail out if not connected.
+     */
+    if (!tcp->connected) {
+        JS_ReportErrorNumber(cx, js_GetErrorMessage, NULL,
+                             PSMSG_FAILED, "not connected");
+        return JS_FALSE;
+    }
+
+    /*
+     * Send the data.
+     */
+    nwritten = send(tcp->fd,
+                    js_GetStringBytes(data),
+                    JSSTRING_LENGTH(data),
+                    0);
+    if (nwritten == -1) {
+        JS_ReportErrorNumber(cx, js_GetErrorMessage, NULL,
+                             PSMSG_SOCKET_ERROR);
+        return JS_FALSE;
+    }
+    return JS_TRUE;
+}
+
+/**
+ * System class initialiser.
+ */
+JSObject*
+ps_InitTCPSocketClass(JSContext *cx, JSObject *obj)
+{
+    JSObject *proto;
+
+    proto = JS_InitClass(cx, obj, NULL, &tcpsocket_class, TCPSocket_CT, 1,
+                         tcpsocket_props, tcpsocket_methods, NULL, NULL);
+    if (!proto) {
+        return NULL;
+    }
+    /* What else */
+    return proto;
+}

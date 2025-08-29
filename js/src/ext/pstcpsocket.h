@@ -18,22 +18,22 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  */
 
-#ifndef pssystem_h___
-#define pssystem_h___
+#ifndef pstcpsocket_h___
+#define pstcpsocket_h___
 
 #include "jsprvtd.h"
 #include "jspubtd.h"
 
 /*
- * ProntoScipt System class.
+ * ProntoScipt TCPSocket class.
  */
 
 JS_BEGIN_EXTERN_C
 
-/* Initialise the JavaScript 'System' class. */
+/* Initialise the JavaScript 'TCPSocket' class.  */
 extern JSObject *
-ps_InitSystemClass(JSContext *cx, JSObject *obj);
+ps_InitTCPSocketClass(JSContext *cx, JSObject *obj);
 
 JS_END_EXTERN_C
 
-#endif /* pssystem_h___ */
+#endif /* pstcpsocket_h___ */

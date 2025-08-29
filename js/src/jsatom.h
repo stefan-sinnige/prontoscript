@@ -219,6 +219,7 @@ struct JSAtomState {
 
     /* ProntoScript atoms */
     JSAtom              *SystemAtom;
+    JSAtom              *TCPSocketAtom;
 
     /* Less frequently used atoms, pinned lazily by JS_ResolveStandardClass. */
     struct {
@@ -331,6 +332,7 @@ extern const char   js_xml_str[];
 
 /* ProntoScript strings */
 extern const char   ps_System_str[];
+extern const char   ps_TCPSocket_str[];
 
 #ifdef NARCISSUS
 extern const char   js_call_str[];

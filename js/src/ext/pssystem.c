@@ -1,3 +1,23 @@
+/*
+ * This file is part of the ProntoScript replication distribution
+ * (https://github.com/stefan-sinnige/prontoscript)
+ *
+ * Copyright (C) 2025, Stefan Sinnige <stefan@kalion.org>
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ */
+
 #include "jsapi.h"
 #include "jscntxt.h"
 #include "jsstr.h"
@@ -15,7 +35,7 @@ extern FILE *gOutFile;
  *      Causes a library script to be included. This library script will be
  *      executed, causing the classes and variables declared in that library
  *      script to become available in the global scope.
- * Parameter:
+ * Parameters:
  *      name String
  *           Filename of the library script.
  * Exceptions:
@@ -49,12 +69,14 @@ System_Include(JSContext *cx, JSObject *obj, uintN argc, jsval *argv,
             strlcat(path, "/", sizeof(path));
             strlcat(path, name, sizeof(path));
             if (stat(path, &statbuf) != 0) {
-                JS_ReportError(cx, "invalid name");
+                JS_ReportErrorNumber(cx, js_GetErrorMessage, NULL,
+                                     PSMSG_INVALID_NAME);
                 return JS_FALSE;
             }
         }
         else {
-            JS_ReportError(cx, "invalid name");
+            JS_ReportErrorNumber(cx, js_GetErrorMessage, NULL,
+                                 PSMSG_INVALID_NAME);
             return JS_FALSE;
         }
     }
@@ -69,7 +91,7 @@ System_Include(JSContext *cx, JSObject *obj, uintN argc, jsval *argv,
  *      System.print(s)
  * Purpose:
  *      Display a debug message on the debug output panel.
- * Parameter:
+ * Parameters:
  *      s    String
  *           Text to be displayed.
  * Exceptions:

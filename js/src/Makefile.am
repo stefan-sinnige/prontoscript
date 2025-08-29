@@ -37,11 +37,13 @@ prontoscript_SOURCES = \
     jsxdrapi.c \
     jsxml.c \
     prmjtime.c \
-    ext/pssystem.c
+    ext/pssystem.c \
+    ext/pstcpsocket.c
 
 prontoscript_CPPFLAGS = \
     -DXP_UNIX \
     -DHAVE_VA_COPY -DVA_COPY=va_copy \
+    -DJS_C_STRINGS_ARE_UTF8 \
     -Wno-shift-negative-value
 
 BUILT_SOURCES = \

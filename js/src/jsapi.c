@@ -78,6 +78,7 @@
 #include "jsstr.h"
 #include "prmjtime.h"
 #include "ext/pssystem.h"
+#include "ext/pstcpsocket.h"
 
 #if JS_HAS_FILE_OBJECT
 #include "jsfile.h"
@@ -1192,7 +1193,8 @@ JS_InitStandardClasses(JSContext *cx, JSObject *obj)
            js_InitFileClass(cx, obj) &&
 #endif
            js_InitDateClass(cx, obj) &&
-           ps_InitSystemClass(cx, obj);
+           ps_InitSystemClass(cx, obj) &&
+           ps_InitTCPSocketClass(cx, obj);
 }
 
 #define ATOM_OFFSET(name)       offsetof(JSAtomState, name##Atom)
@@ -1235,6 +1237,7 @@ static struct {
     {js_InitFileClass,              ATOM_OFFSET(File)},
 #endif
     {ps_InitSystemClass,            ATOM_OFFSET(System)},
+    {ps_InitTCPSocketClass,         ATOM_OFFSET(TCPSocket)},
     {NULL,                          0}
 };
 
