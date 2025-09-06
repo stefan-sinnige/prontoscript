@@ -66,6 +66,7 @@
 #include "jsscope.h"
 #include "jsscript.h"
 #include "jsstr.h"
+#include "ext/psselect.h"
 
 #if JS_HAS_JIT
 #include "jsjit.h"
@@ -1427,11 +1428,26 @@ js_Execute(JSContext *cx, JSObject *chain, JSScript *script,
         hookData = hook(cx, &frame, JS_TRUE, 0, cx->runtime->executeHookData);
 
     /*
+     * Initialise the asynchroneous mechanism.
+     */
+    if (!ps_InitSelect(cx))  {
+        return JS_FALSE;
+    }
+
+    /*
      * Use frame.rval, not result, so the last result stays rooted across any
      * GC activations nested within this js_Interpret.
      */
     ok = js_Interpret(cx, script->code, &frame.rval);
     *result = frame.rval;
+
+    /*
+     * Handle any outstanding asynchronous events until there are none left.
+     */
+    if (ok) {
+        while (ps_HandleSelect(cx)) ;
+        ps_DestroySelect(cx);
+    }
 
     if (hookData) {
         hook = cx->runtime->executeHook;

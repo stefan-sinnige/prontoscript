@@ -36,6 +36,8 @@ The architecture of the replication of ProntoScript is presented as
   | Javascript 1.6                   |
   |                 ---------------- |
   |                | Event  | Socket |
+  |                |---------------- |
+  |                |      Select     |
    ----------------------------------
 ```
 At the core is the JavaScript 1.6, forked off the Historic SpiderMonkey github
@@ -48,6 +50,16 @@ the development and testing of scripts to be done in isolation without a need
 for ProntoEdit Professional. The scripts developed in this manner would also
 be made available as-is to ProntoEdit Professional for inclusion in a remote
 control configuration.
+
+The main change is made to the script invocation of the ProntoScript based
+scripts as it would need to cater for asynchroneous behaviour. This means that
+the script may start the event handling (e.g. connecting to a remote server
+over TCP), but not block the remaining execution of the script. Only when a
+connection could be established, this would trigger the execution of a user
+defined callback function to communicate with the remote server. The handling
+of all asynchroneous events will *only* happen after the script has been
+execution, and will *only* finish until there are no events pending to be
+handled. At that point the script will exit.
 
 ## Compatibility
 
@@ -68,11 +80,27 @@ re-implementation. The following is a status of compatibility:
 | Relay              | *             | Not implemented.                       |
 | Serial             | *             | Not implemented.                       |
 | System             | include()     | Implemented.                           |
-|                    | print()       | Implemented.
+|                    | print()       | Implemented.                           |
 |                    | *             | Not implemented.                       |
-| TCPSocket          | *             | Not implemented.                       |
+| TCPSocket          | connected     | Implemented.                           |
+|                    | onClose       | Implemented<sup>0</sup>.               |
+|                    | onConnect     | Implemented<sup>0</sup>.               |
+|                    | onIOError     | Implemented<sup>0</sup>.               |
+|                    | connect()     | Implemented.                           |
+|                    | close()       | Implemented.                           |
+|                    | write()       | Implemented.                           |
+|                    | read()        | Implemented.                           |
+|                    | *             | Not implemented.                       |
 | UDPSocket          | *             | Not implemented.                       |
 | Widget             | *             | Not implemented.                       |
+
+<sup>0</sup> Partial compatibility. Refer to the subsection below for more
+details.
+
+### TCPSocket
+
+The `TCPSocket` callback functions would require the use of `this` when calling
+methods or accessing properties on the associated socket instance.
 
 ## References
 
