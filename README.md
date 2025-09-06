@@ -16,12 +16,12 @@ only operate on Windows platforms.
 
 The ProntoScript engine provided here is a re-implementation that is able to
 run on most modern devices that support a C++ compiler and POSIX compliant
-libraries. This include Linux, MacOS and (with some slight modifications due
+libraries. This includes Linux, MacOS and (with some slight modifications due
 to POSIX) Windows as well.
 
 ## Building
 
-The original JavaScript source code tar ball has only a partial build system and has therefore been changed by adding an autoconf/automake based build system. In general, building the prontoscript would consists of
+The original JavaScript source code tar ball has only a partial build system and has therefore been changed by adding an autoconf/automake based build system. In general, building the prontoscript would consist of
 ```
 autoreconf -fiv
 ./configure --disable-dependency-tracking
@@ -85,13 +85,17 @@ re-implementation. The following is a status of compatibility:
 | TCPSocket          | connected     | Implemented.                           |
 |                    | onClose       | Implemented<sup>0</sup>.               |
 |                    | onConnect     | Implemented<sup>0</sup>.               |
+|                    | onData        | Implemented<sup>0</sup>.               |
 |                    | onIOError     | Implemented<sup>0</sup>.               |
 |                    | connect()     | Implemented.                           |
 |                    | close()       | Implemented.                           |
 |                    | write()       | Implemented.                           |
 |                    | read()        | Implemented.                           |
 |                    | *             | Not implemented.                       |
-| UDPSocket          | *             | Not implemented.                       |
+| UDPSocket          | onData        | Implemented<sup>0</sup>.               |
+|                    | close()       | Implemented.                           |
+|                    | send()        | Implemented.                           |
+|                    | *             | Not implemented.                       |
 | Widget             | *             | Not implemented.                       |
 
 <sup>0</sup> Partial compatibility. Refer to the subsection below for more

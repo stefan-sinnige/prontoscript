@@ -146,6 +146,7 @@ const char js_xml_str[]             = "xml";
 
 const char ps_System_str[]          = "System";
 const char ps_TCPSocket_str[]       = "TCPSocket";
+const char ps_UDPSocket_str[]       = "UDPSocket";
 
 #ifdef NARCISSUS
 const char js_call_str[]             = "__call__";
@@ -365,6 +366,7 @@ js_InitPinnedAtoms(JSContext *cx, JSAtomState *state)
 
     FROB(SystemAtom,              ps_System_str);
     FROB(TCPSocketAtom,           ps_TCPSocket_str);
+    FROB(UDPSocketAtom,           ps_UDPSocket_str);
 
 #ifdef NARCISSUS
     FROB(callAtom,                js_call_str);

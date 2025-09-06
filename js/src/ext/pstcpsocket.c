@@ -342,29 +342,14 @@ TCPSocket_SelectErrorCallback(JSContext *cx, JSObject *obj)
     if (!tcp) {
         return;
     }
-#if 0
-    if (tcp->onIOError != JSVAL_VOID) {
-        uintN iargc = 1;
-        jsval iargv[1];
 
-        /* Prepare arguments */
-        JSString* data = JS_NewStringCopyZ(cx, "Hello World");
-        if (!data) {
-            return JS_FALSE;
-        }
-        iargv[0] = STRING_TO_JSVAL(data);
-
-        // Invoke
-        TCPSocket_Invoke(cx, tcp->IOError, iargc, iargv);
-    }
-#endif
     /*
      * Invoke the callback
      */
     TCPSocket_Invoke(cx, obj, tcp->onIOError, argc, argv);
 
     /* Ensure to close the socket. */
-    //TCPSocket_Close(cx, obj, 0, NULL, &rval);
+    TCPSocket_Close(cx, obj, 0, NULL, &rval);
 }
 
 /*

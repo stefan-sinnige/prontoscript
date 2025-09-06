@@ -39,7 +39,8 @@ prontoscript_SOURCES = \
     prmjtime.c \
     ext/psselect.c \
     ext/pssystem.c \
-    ext/pstcpsocket.c
+    ext/pstcpsocket.c \
+    ext/psudpsocket.c
 
 prontoscript_CPPFLAGS = \
     -DXP_UNIX \
