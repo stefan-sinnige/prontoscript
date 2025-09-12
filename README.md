@@ -106,6 +106,11 @@ details.
 The `TCPSocket` callback functions would require the use of `this` when calling
 methods or accessing properties on the associated socket instance.
 
+### UDPSocket
+
+The `UDPSocket` callback functions would require the use of `this` when calling
+methods or accessing properties on the associated socket instance.
+
 ## References
 
 * [Javascript 1.6](https://github.com/Historic-Spidermonkey-Source-Code/JavaScript-1.6.0.git)
