@@ -150,7 +150,8 @@ void
 TCPSocket_Delete(JSContext* cx, TCPSocket* tcp)
 {
     if (tcp->fd != -1) {
-        close(tcp->fd);
+        (void) shutdown(tcp->fd, SHUT_WR);
+        (void) close(tcp->fd);
     }
     JS_free(cx, tcp);
 }
@@ -286,11 +287,11 @@ TCPSocket_SelectCallback(JSContext *cx, JSObject *obj)
         else {
             /* Failure to connect, remove the descriptor so we're not
              * triggered over and over again. */
+            const char* errmsg = strerror(errno);
             ps_RemoveSelect(cx, tcp->fd);
             tcp->state = TCPSTATE_UNCONNECTED;
             func = tcp->onIOError;
-            argc = 1;
-            JSString* data = JS_NewStringCopyZ(cx, "");
+            JSString* data = JS_NewStringCopyZ(cx, errmsg);
             if (!data) {
                 return;
             }
@@ -299,9 +300,37 @@ TCPSocket_SelectCallback(JSContext *cx, JSObject *obj)
         }
     }
     else {
-        /* Connected: expecting data. */
-        argc = 0;
-        func = tcp->onData;
+        /* Connected: expecting data. If there is no data available, assume that
+         * the connection is closed by peer. */
+        char dummy;
+        ssize_t npeek = recv(tcp->fd, &dummy, 1, MSG_PEEK);
+        if (npeek == 0) {
+            ps_RemoveSelect(cx, tcp->fd);
+           (void) shutdown(tcp->fd, SHUT_WR);
+           (void) close(tcp->fd);
+           tcp->state = TCPSTATE_UNCONNECTED;
+           tcp->fd = -1;
+           argc = 0;
+           func = tcp->onClose;
+        }
+        else if (npeek < 0) {
+            /* Failure to connect, remove the descriptor so we're not
+             * triggered over and over again. */
+            const char* errmsg = strerror(errno);
+            ps_RemoveSelect(cx, tcp->fd);
+            tcp->state = TCPSTATE_UNCONNECTED;
+            func = tcp->onIOError;
+            JSString* data = JS_NewStringCopyZ(cx, errmsg);
+            if (!data) {
+                return;
+            }
+            argc = 1;
+            argv[0] = STRING_TO_JSVAL(data);
+        }
+	else {
+            argc = 0;
+            func = tcp->onData;
+        }
     }
 
     /*
@@ -470,7 +499,7 @@ TCPSocket_DT(JSContext* cx, JSObject *obj)
  *          IP Address or host name to connect to.
  *      port    Integer
  *          Port number to connect to.
- *      timeout Integer
+ *      timeout Integer (opt)
  *          Maximum time in milliseconds to establish an asynchroneous
  *          connection.
  * Exceptions:
@@ -495,7 +524,7 @@ TCPSocket_Connect(JSContext *cx, JSObject *obj, uintN argc, jsval *argv,
     char* peer = "";
     JSUint32 ip = 0;
     JSUint16 port = 0;
-    JSUint32 timeout = 0;
+    JSUint32 timeout = 5000;
     struct sockaddr_in addr;
     socklen_t len;
     int result;
@@ -509,7 +538,7 @@ TCPSocket_Connect(JSContext *cx, JSObject *obj, uintN argc, jsval *argv,
     /*
      * Extract the address and port.
      */
-    if (argc != 3) {
+    if (argc < 2) {
         JS_ReportErrorNumber(cx, js_GetErrorMessage, NULL,
                              PSMSG_NOT_ENOUGH_ARGUMENTS);
         return JS_FALSE;
@@ -526,12 +555,14 @@ TCPSocket_Connect(JSContext *cx, JSObject *obj, uintN argc, jsval *argv,
         return JS_FALSE;
     }
     port = JSVAL_TO_INT(argv[1]);
-    if (JS_TypeOfValue(cx, argv[2]) != JSTYPE_NUMBER) {
-        JS_ReportErrorNumber(cx, js_GetErrorMessage, NULL,
-                             PSMSG_ARGUMENT_NOT_INT);
-        return JS_FALSE;
+    if (argc == 3) {
+        if (JS_TypeOfValue(cx, argv[2]) != JSTYPE_NUMBER) {
+            JS_ReportErrorNumber(cx, js_GetErrorMessage, NULL,
+                                 PSMSG_ARGUMENT_NOT_INT);
+            return JS_FALSE;
+        }
+        timeout = JSVAL_TO_INT(argv[2]);
     }
-    timeout = JSVAL_TO_INT(argv[2]);
 
     /* 
      * Get the IP address from the peer
@@ -585,7 +616,8 @@ TCPSocket_Connect(JSContext *cx, JSObject *obj, uintN argc, jsval *argv,
      * If already connected, close it first.
      */
     if (tcp->state == TCPSTATE_CONNECTED) {
-        close(tcp->fd);
+        (void) shutdown(tcp->fd, SHUT_WR);
+        (void) close(tcp->fd);
         tcp->state = TCPSTATE_UNCONNECTED;
         tcp->fd = -1;
     }
@@ -661,7 +693,8 @@ TCPSocket_Close(JSContext *cx, JSObject *obj, uintN argc, jsval *argv,
     }
     if (tcp->fd != -1) {
         ps_RemoveSelect(cx, tcp->fd);
-        close(tcp->fd);
+        (void) shutdown(tcp->fd, SHUT_WR);
+        (void) close(tcp->fd);
         tcp->fd = -1;
     }
     return JS_TRUE;

@@ -19,6 +19,10 @@ run on most modern devices that support a C++ compiler and POSIX compliant
 libraries. This includes Linux, MacOS and (with some slight modifications due
 to POSIX) Windows as well.
 
+It's main aim is to enhance development capabilities to run ProntoScript scripts
+directly on the development platform without having to incorporate it in a
+remote control configuration or run it in a remote control simulator.
+
 ## Building
 
 The original JavaScript source code tar ball has only a partial build system and has therefore been changed by adding an autoconf/automake based build system. In general, building the prontoscript would consist of
@@ -26,6 +30,13 @@ The original JavaScript source code tar ball has only a partial build system and
 autoreconf -fiv
 ./configure --disable-dependency-tracking
 make
+```
+
+## Architecture
+
+Automated tests can be run after a successfull buid with
+```
+make check
 ```
 
 ## Architecture

@@ -9,5 +9,6 @@ AC_PROG_INSTALL
 AC_CONFIG_FILES([
     Makefile
     js/src/Makefile
+    test/Makefile
 ])
 AC_OUTPUT
