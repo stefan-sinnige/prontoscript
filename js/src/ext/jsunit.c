@@ -334,7 +334,7 @@ JSUnit_Assert(JSContext *cx, JSObject *obj, uintN argc, jsval *argv,
                 if (JSVAL_IS_STRING(argv[0]) && JSVAL_IS_STRING(argv[1])) {
                     char *expected, *actual;
                     expected = js_GetStringBytes(JSVAL_TO_STRING(argv[0]));
-                    actual = js_GetStringBytes(JSVAL_TO_STRING(argv[0]));
+                    actual = js_GetStringBytes(JSVAL_TO_STRING(argv[1]));
                     if (strcmp(expected, actual) != 0) {
                         result = JS_FALSE;
                         fprintf(stderr, "Assertion failed:\n"

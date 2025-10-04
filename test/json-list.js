@@ -12,7 +12,7 @@ function listDictionaryTest() {
         handled = true;
         json = JSON.parse(aData);
         suite.assert("Fleetwood Mac", json[0]["artist"]);
-        suite.assert("Communication Breadkdown",json[1]["title"]);
+        suite.assert("Communication Breakdown", json[1]["title"]);
     });
     suite.events();
     suite.assert(handled, true);
