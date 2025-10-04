@@ -306,15 +306,15 @@ TCPSocket_SelectCallback(JSContext *cx, JSObject *obj)
         ssize_t npeek = recv(tcp->fd, &dummy, 1, MSG_PEEK);
         if (npeek == 0) {
             ps_RemoveSelect(cx, tcp->fd);
-           (void) shutdown(tcp->fd, SHUT_WR);
-           (void) close(tcp->fd);
-           tcp->state = TCPSTATE_UNCONNECTED;
-           tcp->fd = -1;
-           argc = 0;
-           func = tcp->onClose;
+            (void) shutdown(tcp->fd, SHUT_WR);
+            (void) close(tcp->fd);
+            tcp->state = TCPSTATE_UNCONNECTED;
+            tcp->fd = -1;
+            argc = 0;
+            func = tcp->onClose;
         }
         else if (npeek < 0) {
-            /* Failure to connect, remove the descriptor so we're not
+            /* Failure to read data, remove the descriptor so we're not
              * triggered over and over again. */
             const char* errmsg = strerror(errno);
             ps_RemoveSelect(cx, tcp->fd);
@@ -469,7 +469,7 @@ TCPSocket_CT(JSContext* cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval)
     tcp = TCPSocket_New(cx, blocking);
     JS_LOCK_OBJ(cx, obj);
     ok = JS_SetPrivate(cx, obj, tcp);
-    JS_LOCK_OBJ(cx, obj);
+    JS_UNLOCK_OBJ(cx, obj);
     if (!ok) {
         return JS_FALSE;
     }

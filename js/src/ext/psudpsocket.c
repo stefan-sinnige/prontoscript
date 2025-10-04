@@ -418,7 +418,7 @@ UDPSocket_CT(JSContext* cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval)
     /* Set the private instance state object */
     JS_LOCK_OBJ(cx, obj);
     ok = JS_SetPrivate(cx, obj, udp);
-    JS_LOCK_OBJ(cx, obj);
+    JS_UNLOCK_OBJ(cx, obj);
     if (!ok) {
         return JS_FALSE;
     }
