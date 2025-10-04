@@ -218,6 +218,7 @@ struct JSAtomState {
     JSAtom              *xmlAtom;
 
     /* ProntoScript atoms */
+    JSAtom              *JSUnitAtom;
     JSAtom              *SystemAtom;
     JSAtom              *TCPSocketAtom;
     JSAtom              *UDPSocketAtom;
@@ -330,6 +331,9 @@ extern const char   js_toString_str[];
 extern const char   js_toLocaleString_str[];
 extern const char   js_valueOf_str[];
 extern const char   js_xml_str[];
+
+/* Miscellaneous extension strings */
+extern const char   js_JSUnit_str[];
 
 /* ProntoScript strings */
 extern const char   ps_System_str[];

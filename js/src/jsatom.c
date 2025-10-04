@@ -144,6 +144,7 @@ const char js_tagc_str[]            = ">";
 const char js_xml_str[]             = "xml";
 #endif
 
+const char js_JSUnit_str[]          = "JSUnit";
 const char ps_System_str[]          = "System";
 const char ps_TCPSocket_str[]       = "TCPSocket";
 const char ps_UDPSocket_str[]       = "UDPSocket";
@@ -364,6 +365,7 @@ js_InitPinnedAtoms(JSContext *cx, JSAtomState *state)
     FROB(xmlAtom,                 js_xml_str);
 #endif
 
+    FROB(JSUnitAtom,              js_JSUnit_str);
     FROB(SystemAtom,              ps_System_str);
     FROB(TCPSocketAtom,           ps_TCPSocket_str);
     FROB(UDPSocketAtom,           ps_UDPSocket_str);

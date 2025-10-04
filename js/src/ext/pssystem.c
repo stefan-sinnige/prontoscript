@@ -105,7 +105,7 @@ System_Include(JSContext *cx, JSObject *obj, uintN argc, jsval *argv,
 static JSBool
 System_Print(JSContext *cx, JSObject *obj, uintN argc, jsval *argv, jsval *rval)
 {
-    /* Access the (formerly static) 'Print' function fomr 'js.c' to print to
+    /* Access the (formerly static) 'Print' function from 'js.c' to print to
      * standard output. */
     extern JSBool Print(JSContext*, JSObject*, uintN, jsval*, jsval*);
     return Print(cx, obj, argc, argv, rval);

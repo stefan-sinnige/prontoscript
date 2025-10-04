@@ -122,6 +122,17 @@ methods or accessing properties on the associated socket instance.
 The `UDPSocket` callback functions would require the use of `this` when calling
 methods or accessing properties on the associated socket instance.
 
+## Miscellaneous
+
+A number of miscellaneous API is provided to support this ProntoScript project.
+
+| Miscellaneous Class | Class Members | Description                            |
+|:--------------------|:--------------|:---------------------------------------|
+| JSUnit              | add           | Add a test-case                        |
+|                     | assert        | Execute an assertion                   |
+|                     | events        | Run all events until none are left     |
+|                     | run           | Run all test cases                     |
+
 ## References
 
 * [Javascript 1.6](https://github.com/Historic-Spidermonkey-Source-Code/JavaScript-1.6.0.git)

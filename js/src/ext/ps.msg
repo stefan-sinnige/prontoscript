@@ -62,4 +62,6 @@ MSG_DEF(PSMSG_SOCKET_NOT_READY,          223, 0, JSEXN_ERR, "socket not ready")
 MSG_DEF(PSMSG_ADDRESS_IN_USE,            224, 0, JSEXN_ERR, "address already in use")
 MSG_DEF(PSMSG_INSUFFICIENT_MEMORY,       225, 0, JSEXN_ERR, "insufficient internal memory available")
 MSG_DEF(PSMSG_MAXIMUM_BLOCKING_READ,     226, 0, JSEXN_ERR, "maximum blocking read length exceeded")
+MSG_DEF(PSMSG_NOT_ALL_TEST_CASES_RUN,    227, 0, JSEXN_ERR, "not all test cases have run")
+MSG_DEF(PSMSG_FAILING_TEST_SUITE,        228, 0, JSEXN_ERR, "failing test suite")
 

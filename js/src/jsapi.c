@@ -77,6 +77,7 @@
 #include "jsscript.h"
 #include "jsstr.h"
 #include "prmjtime.h"
+#include "ext/jsunit.h"
 #include "ext/pssystem.h"
 #include "ext/pstcpsocket.h"
 #include "ext/psudpsocket.h"
@@ -1194,6 +1195,7 @@ JS_InitStandardClasses(JSContext *cx, JSObject *obj)
            js_InitFileClass(cx, obj) &&
 #endif
            js_InitDateClass(cx, obj) &&
+           js_InitJSUnitClass(cx, obj) &&
            ps_InitSystemClass(cx, obj) &&
            ps_InitTCPSocketClass(cx, obj) &&
            ps_InitUDPSocketClass(cx, obj);
@@ -1238,6 +1240,7 @@ static struct {
 #if JS_HAS_FILE_OBJECT
     {js_InitFileClass,              ATOM_OFFSET(File)},
 #endif
+    {js_InitJSUnitClass,            ATOM_OFFSET(JSUnit)},
     {ps_InitSystemClass,            ATOM_OFFSET(System)},
     {ps_InitTCPSocketClass,         ATOM_OFFSET(TCPSocket)},
     {ps_InitUDPSocketClass,         ATOM_OFFSET(UDPSocket)},

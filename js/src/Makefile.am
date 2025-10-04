@@ -37,6 +37,7 @@ prontoscript_SOURCES = \
     jsxdrapi.c \
     jsxml.c \
     prmjtime.c \
+    ext/jsunit.c \
     ext/psselect.c \
     ext/pssystem.c \
     ext/pstcpsocket.c \
